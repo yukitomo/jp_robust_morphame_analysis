@@ -44,7 +44,7 @@ def main():
 	posid_word_counts = defaultdict(dict)
 
 	for txt in txts:
-		[posid_bigram_counts, posid_word_counts] = mainichi_txt_inputter(txt, posid_bigram_counts, posid_word_counts)
+		[posid_bigram_counts, posid_word_counts] = mainichi_txt_inputter(open(txt,"r"), posid_bigram_counts, posid_word_counts)
 
 	pickle.dump(posid_bigram_counts,open("mainichi_posid_bigram_counts.pkl","w"))
 	pickle.dump(posid_word_counts,open("mainichi_posid_word_counts.pkl","w"))
