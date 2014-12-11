@@ -46,8 +46,8 @@ def main():
 	for txt in txts:
 		[posid_bigram_counts, posid_word_counts] = mainichi_txt_inputter(open(txt,"r"), posid_bigram_counts, posid_word_counts)
 
-	pickle.dump(posid_bigram_counts,open("mainichi_posid_bigram_counts.pkl","w"))
-	pickle.dump(posid_word_counts,open("mainichi_posid_word_counts.pkl","w"))
+	pickle.dump(posid_bigram_counts,open("posid_bigram_counts.pkl","w"))
+	pickle.dump(posid_word_counts,open("posid_word_counts.pkl","w"))
 
 if __name__ == '__main__':
 	main()
