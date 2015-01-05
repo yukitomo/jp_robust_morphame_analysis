@@ -6,4 +6,5 @@ import jctconv
 
 k = "ご飯"
 sent = unicode(k.strip(),"utf-8")
+print type(sent)
 print jctconv.jctconv.hira2kata(sent)

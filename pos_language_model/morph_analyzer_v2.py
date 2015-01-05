@@ -43,7 +43,12 @@ def expand_string(string):
 	ex_strings = []
 
 	#ひらがな to カタカナ
-	ex_strings.append(jctconv.hira2kata(string))
+	string = unicode(string,"utf-8")
+	"""
+	print string
+	print type(string)
+	"""
+	ex_strings.append(jctconv.jctconv.hira2kata(string))
 		
 	return ex_strings
 
@@ -68,15 +73,18 @@ class Lattice_Maker():
 			for i_b in range(i_e): #index_begin
 				str_part = sent[i_b:i_e].encode('utf-8') #文字の塊, unicodeをutf-8に変換する必要あり
 				lattice[i_b][i_e] = self.create_nodes(str_part)
+
 		return lattice
 
 	def create_nodes(self, search_string):
 		nodes_list = []
 		#入力の表記wで直接見つかるノードを生成
 		#nodes_list += [self.convert_morph2node(morph, search_string) for morph in self.wdic[search_string]]
+		#print self.wdic[search_string]
 		for morph in self.wdic[search_string]:
-			print type(morph)
-			nodes_list += self.convert_morph2node(morph, search_string)
+			morph.showinfo()
+			nodes_list.append(self.convert_morph2node(morph, search_string))
+
 		ex_strings = expand_string(search_string) #入力されたstringを拡張
 
 		for ex_string in ex_strings:
