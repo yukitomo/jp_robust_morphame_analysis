@@ -13,12 +13,21 @@ def load_2colums(input_file,sym):
 		load_obj[line[0]] = line[1]
 	return load_obj
 
-def load_3colums(input_file,sym):
+def load_3colums_string(input_file,sym):
 	load_obj = defaultdict(dict)
 	for line in input_file:
-		line.strip().split(sym)
+		line = line.strip().split(sym)
 		load_obj[line[0]][line[1]] = line[2]
 	return load_obj
+
+def load_3colums_number(input_file,sym):
+	load_obj = defaultdict(dict)
+	for line in input_file:
+		line = line.strip().split(sym)
+		if len(line) > 2:
+			load_obj[int(line[0])][int(line[1])] = float(line[2])
+	return load_obj
+
 
 class Lattice_Node():
 	"""
@@ -28,10 +37,14 @@ class Lattice_Node():
 	def __init__(self, v_surface, w_surface, id_l, id_r, vc_cost, wv_cost):
 		self.v_surface = v_surface #入力されたものの元の表記v
 		self.w_surface = w_surface #入力文字列の表記w
-		self.posid_l = id_l #左文脈ID
-		self.posid_r = id_r #右文脈ID
-		self.vc_cost = vc_cost #品詞cから単語vが生成されるコスト
-		self.wv_cost = wv_cost #単語vから表記wが生成されるコスト
+		self.id_l = int(id_l) #左文脈ID
+		self.id_r = int(id_r) #右文脈ID
+		self.vc_cost = float(vc_cost) #品詞cから単語vが生成されるコスト
+		self.wv_cost = float(wv_cost) #単語vから表記wが生成されるコスト
+
+	def showinfo(self):
+		print "[v, w, id_l, id_r, vcc, wvc] = [%s, %s, %d, %d, %f, %f]"%(self.v_surface, self.w_surface, self.id_l, self.id_r, self.vc_cost, self.wv_cost)
+
 
 
 def expand_string(string):
@@ -69,10 +82,13 @@ class Lattice_Maker():
 		lattice = defaultdict(dict)
 		sent = unicode(sent.strip(),"utf-8")
 
-		for i_e in range(len(sent))[1:]: #index_end
+		for i_e in range(len(sent)+1)[1:]: #index_end
 			for i_b in range(i_e): #index_begin
 				str_part = sent[i_b:i_e].encode('utf-8') #文字の塊, unicodeをutf-8に変換する必要あり
-				lattice[i_b][i_e] = self.create_nodes(str_part)
+				lattice[i_b + 1][i_e + 1] = self.create_nodes(str_part)
+		#BOS, EOSを付加
+		lattice[0][1] = [Lattice_Node("BOS", "BOS", 0, 0, 0, 0)]
+		lattice[i_e + 1][i_e + 2] = [Lattice_Node("EOS", "EOS", 0, 0, 0, 0)]
 
 		return lattice
 
@@ -82,7 +98,7 @@ class Lattice_Maker():
 		#nodes_list += [self.convert_morph2node(morph, search_string) for morph in self.wdic[search_string]]
 		#print self.wdic[search_string]
 		for morph in self.wdic[search_string]:
-			morph.showinfo()
+			#morph.showinfo()
 			nodes_list.append(self.convert_morph2node(morph, search_string))
 
 		ex_strings = expand_string(search_string) #入力されたstringを拡張
@@ -128,10 +144,11 @@ class Lattice_Maker():
 
 def main():
 	dict_dir = "/Users/yukitomo/Research/jp_robust_morphame_analysis/data/mecab-ipadic-2.7.0-20070801-utf8/"
+	pkl_dir = "/Users/yukitomo/Research/jp_robust_morphame_analysis/pkl_data/"
 
 	print "loading dictionary"
 
-	wdic = pickle.load(open("ipadic_word_dict.pkl", "r"))
+	wdic = pickle.load(open(pkl_dir + "ipadic_word_dict.pkl", "r"))
 	
 	"""
 	#単語辞書checker 
@@ -141,18 +158,26 @@ def main():
 			morph.showinfo()
 	"""
 
-	rpdic = pickle.load(open("ipadic_read_pron_dict.pkl", "r"))
+	rpdic = pickle.load(open(pkl_dir + "ipadic_read_pron_dict.pkl", "r"))
 	iddef = load_2colums(open(dict_dir + "left-id.def","r")," ") #mecabはr,l同じID
 
-	wvcos = load_3colums(open(dict_dir + "wv_cost.def","r"),"\t")
-	cccos = load_3colums(open(dict_dir + "matrix.def","r")," ")
+	wvcos = load_3colums_string(open(dict_dir + "wv_cost.def","r"),"\t")
+	cccos = load_3colums_number(open(dict_dir + "matrix.def","r")," ")
 
 	lm = Lattice_Maker(wdic, rpdic, wvcos, cccos, iddef)
 
 	input_sent = raw_input('input a sentence\n')
 
 	lattice = lm.create_lattice(input_sent)
-	print lattice 
+
+	for k1, v in lattice.items():
+		for k2, node_list in v.items():
+			print k1, k2
+			for node in node_list:
+				node.showinfo()
+
+	pickle.dump(lattice, open(pkl_dir + "lattice_gohanwotaberu.pkl","w"))
+
 
 
 
