@@ -3,7 +3,7 @@
 #2015-01-07 Yuki Tomo
 
 import pickle
-from morph_analyzer_v2 import load_3colums_number, Lattice_Node
+from morph_analyzer_v2 import load_2colums,load_3colums_number, Lattice_Node
 from collections import defaultdict
 
 
@@ -19,8 +19,13 @@ class Node_result():
 		print "[b_index, e_index, best_score, best_edge] = [%d, %d, %f, (%d, %d)]"%(self.b_idx, self.e_idx, self.score, self.edge[0], self.edge[1])
 		self.node.showinfo()
 
-def viterbi(lattice,cccos):
-	#sent_length = len(lattice)
+	def showinfo_pos(self,iddef):
+		print "[b_index, e_index, best_score, best_edge] = [%d, %d, %f, (%d, %d)]"%(self.b_idx, self.e_idx, self.score, self.edge[0], self.edge[1])
+		self.node.showinfo()
+		print iddef[self.node.id_l]
+
+def viterbi(lattice,cccos,iddef):
+	sent_length = len(lattice)
 	lattice_result = defaultdict(list)
 	BOS_node = Node_result(lattice[0][1][0], 0, 1, 0, (-1,0))
 	#EOS_node = Node_result(lattice[sent_length-1][sent_length][0], sent_length-1, sent_length, 0, (0,0))
@@ -60,12 +65,31 @@ def viterbi(lattice,cccos):
 					node_result = Node_result(node, b_i, e_i, best_score, best_edge)
 					lattice_result[e_i].append(node_result)
 
-	#Backward
+	#nodeの計算結果の確認
+	"""
 	for k, v in lattice_result.items():
 		for ins in v:
 			ins.showinfo()
 
 		print k
+	"""
+
+	#Backward 後ろのノードからベストエッジをたどる
+	former_edge = (sent_length, 0)
+	best_sequence = []
+
+	#former_edge = (-1, 0) にならない限り
+	while not former_edge == (-1, 0):
+		#print "former_edge", former_edge
+		best_node = lattice_result[former_edge[0]][former_edge[1]]
+		best_sequence.insert(0,best_node) 
+		former_edge = best_node.edge
+
+	for best_node in best_sequence:
+		best_node.showinfo_pos(iddef)
+		
+
+
 
 
 
@@ -76,10 +100,12 @@ def main():
 	"""
 	pkl_dict = "/Users/yukitomo/Research/jp_robust_morphame_analysis/pkl_data/" 
 	dict_dir = "/Users/yukitomo/Research/jp_robust_morphame_analysis/data/mecab-ipadic-2.7.0-20070801-utf8/"
+	iddef = load_2colums(open(dict_dir + "left-id.def","r")," ") #mecabはr,l同じID
 	lattice = pickle.load(open(pkl_dict + "lattice_gohanwotaberu.pkl","r"))
 	cccos = load_3colums_number(open(dict_dir + "matrix.def","r"), " ")
+	
 
-	viterbi(lattice, cccos)
+	viterbi(lattice, cccos, iddef)
 
 
 

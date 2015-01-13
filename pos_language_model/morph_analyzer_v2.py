@@ -9,8 +9,8 @@ from make_dict_obj import Morph
 def load_2colums(input_file,sym):
 	load_obj = {}
 	for line in input_file:
-		line.strip().split(sym) #!/usr/bin/python
-		load_obj[line[0]] = line[1]
+		line = line.strip().split(sym) #!/usr/bin/python
+		load_obj[int(line[0])] = line[1]
 	return load_obj
 
 def load_3colums_string(input_file,sym):
@@ -61,9 +61,28 @@ def expand_string(string):
 	print string
 	print type(string)
 	"""
-	ex_strings.append(jctconv.jctconv.hira2kata(string))
+	ex_strings.append(jctconv.jctconv.hira2kata(string).encode('utf-8'))
 		
 	return ex_strings
+
+class Node_result():
+	def __init__(self, node, begin_idx, end_idx, best_score, best_edge):
+		self.node = node
+		self.b_idx = begin_idx
+		self.e_idx = end_idx
+ 		self.score = best_score
+		self.edge = best_edge
+
+	def showinfo(self):
+		print "[b_index, e_index, best_score, best_edge] = [%d, %d, %f, (%d, %d)]"%(self.b_idx, self.e_idx, self.score, self.edge[0], self.edge[1])
+		self.node.showinfo()
+
+	def showinfo_pos(self,iddef):
+		print "[b_index, e_index, best_score, best_edge] = [%d, %d, %f, (%d, %d)]"%(self.b_idx, self.e_idx, self.score, self.edge[0], self.edge[1])
+		self.node.showinfo()
+		print iddef[self.node.id_l]
+
+
 
 
 class Lattice_Maker():
@@ -104,9 +123,14 @@ class Lattice_Maker():
 		ex_strings = expand_string(search_string) #入力されたstringを拡張
 
 		for ex_string in ex_strings:
+			print ex_string
 			orig_words = self.rpdic[ex_string] #読みがex_stringの単語を格納
+			print orig_words
+			for orig_word in orig_words:
+				print orig_word
 
 			for orig_word in orig_words:
+				print orig_word
 				#nodes_list += [self.convert_morph2node(morph,orig_word) for morph in self.wdic[orig_word]]
 				for morph in self.wdic[orig_word]:
 					morph.showinfo()
@@ -136,11 +160,71 @@ class Lattice_Maker():
 
 
 
-	def viterbi_alg(lattice, cc_costs_dict, id_def):
+	def viterbi(self, lattice):
 		"""
 		input:展開したラティス
 		output:最適なパス、v_opt, c_opt
 		"""
+		sent_length = len(lattice)
+		lattice_result = defaultdict(list) #latticeから
+		BOS_node = Node_result(lattice[0][1][0], 0, 1, 0, (-1,0))
+		lattice_result[1].append(BOS_node)
+	
+		#Forward
+		for b_i, v in lattice.items():
+			if b_i > 0:
+				for e_i, node_list in v.items():
+					#print "forcus index"
+					#print "[b_i, e_i] = [%d, %d]"%(b_i, e_i)
+
+					for node in node_list:
+						pos = node.id_l
+						gen_cost = node.vc_cost + node.wv_cost
+						best_score = 1000000000
+						#print "forcus node"
+						#node.showinfo()
+				
+						#見ているノードの手前のノードからベストスコアとなるノードのindexをベストエッジとする
+						i = 0
+						#print "pre_node"
+						for pre_node in lattice_result[b_i]:
+							#pre_node.showinfo()
+							pre_pos = pre_node.node.id_l
+							pos_cost = self.cccos[pre_pos][pos]
+							cand_score = pre_node.score + pos_cost + gen_cost
+							#print cand_score
+
+							if cand_score < best_score:
+								best_edge = (b_i , i)
+								best_score = cand_score
+							i += 1
+
+						node_result = Node_result(node, b_i, e_i, best_score, best_edge)
+						lattice_result[e_i].append(node_result)
+
+		#nodeの計算結果の確認
+		"""
+		for k, v in lattice_result.items():
+			for ins in v:
+				ins.showinfo()
+
+			print k
+		"""
+
+		#Backward 後ろのノードからベストエッジをたどる
+		former_edge = (sent_length, 0)
+		best_sequence = []
+
+		#former_edge = (-1, 0) にならない限り
+		while not former_edge == (-1, 0):
+			#print "former_edge", former_edge
+			best_node = lattice_result[former_edge[0]][former_edge[1]]
+			best_sequence.insert(0,best_node) 
+			former_edge = best_node.edge
+
+		for best_node in best_sequence:
+			best_node.showinfo_pos(self.iddef)
+
 
 def main():
 	dict_dir = "/Users/yukitomo/Research/jp_robust_morphame_analysis/data/mecab-ipadic-2.7.0-20070801-utf8/"
@@ -170,13 +254,16 @@ def main():
 
 	lattice = lm.create_lattice(input_sent)
 
+	"""
+	#生成されたラティスの確認
 	for k1, v in lattice.items():
 		for k2, node_list in v.items():
 			print k1, k2
 			for node in node_list:
 				node.showinfo()
-
-	pickle.dump(lattice, open(pkl_dir + "lattice_gohanwotaberu.pkl","w"))
+	"""
+	#pickle.dump(lattice, open(pkl_dir + "lattice_gohanwotaberu.pkl","w"))
+	lm.viterbi(lattice)
 
 
 
