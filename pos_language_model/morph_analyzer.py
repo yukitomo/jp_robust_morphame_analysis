@@ -242,6 +242,13 @@ class Lattice_Maker():
 		"""
 		return best_sequence
 
+	def show_best_sequence(self, best_sequence):
+		for best_node in best_sequence:
+			best_node.showinfo_pos(self.iddef)
+		
+
+
+
 
 def main():
 	#辞書の読み込み
@@ -284,8 +291,7 @@ def main():
 	best_sequence = lm.viterbi(lattice)
 
 	#最適系列の出力
-	for best_node in best_sequence:
-		best_node.showinfo_pos(self.iddef)
+	lm.show_best_sequence(best_sequence)
 
 
 
