@@ -43,7 +43,8 @@ class Lattice_Node():
 		self.wv_cost = float(wv_cost) #単語vから表記wが生成されるコスト
 
 	def showinfo(self):
-		print "[v, w, id_l, id_r, vcc, wvc] = [%s, %s, %d, %d, %f, %f]"%(self.v_surface, self.w_surface, self.id_l, self.id_r, self.vc_cost, self.wv_cost)
+		print "[v, w, id_l, id_r, vc_c, wv_c] = [%s, %s, %d, %d, %f, %f]"%(self.v_surface, self.w_surface, self.id_l, self.id_r, self.vc_cost, self.wv_cost)
+
 
 
 
@@ -56,13 +57,24 @@ def expand_string(string):
 	ex_strings = []
 
 	#ひらがな to カタカナ
-	string = unicode(string,"utf-8")
+	u_string = unicode(string,"utf-8") #unicode化 
+	ex_strings.append(jctconv.jctconv.hira2kata(u_string).encode('utf-8'))
+
+	#小文字を含むひらがな to カタカナ (おとぅさん to オトウサン)
+
+	#jctconv.normalize(u'ティロ･フィナ〜レ','NFKC')
 	"""
-	print string
-	print type(string)
+	jctconv.normalize
+	u'〜' -> u'ー',
+	u'～' -> u'ー',
+	u"’" -> "'",
+	u'”' -> '"',
+	u'―' -> '-',
+	u'‐' -> '-'
 	"""
-	ex_strings.append(jctconv.jctconv.hira2kata(string).encode('utf-8'))
-		
+
+	#音が近い文字列
+
 	return ex_strings
 
 class Node_result():
@@ -123,18 +135,16 @@ class Lattice_Maker():
 		ex_strings = expand_string(search_string) #入力されたstringを拡張
 
 		for ex_string in ex_strings:
-			print ex_string
+			#print ex_string
 			orig_words = self.rpdic[ex_string] #読みがex_stringの単語を格納
-			print orig_words
-			for orig_word in orig_words:
-				print orig_word
+			#print orig_words
 
 			for orig_word in orig_words:
-				print orig_word
+				#print orig_word
 				#nodes_list += [self.convert_morph2node(morph,orig_word) for morph in self.wdic[orig_word]]
 				for morph in self.wdic[orig_word]:
 					morph.showinfo()
-					nodes_list.append(self.convert_morph2node(morph,orig_word))
+					nodes_list.append(self.convert_morph2node(morph,search_string))
 
 		return nodes_list
 	
@@ -146,15 +156,19 @@ class Lattice_Maker():
 
 	def get_wv_cost(self, w_surface, v_surface):
 		wv_prob_def = 0.01
-		wv_cost_def = math.log(wv_prob_def) 
+		wv_cost_def = - math.log(wv_prob_def) 
 
+		#w,vが異なる文字列のとき変形コストがかかる
+		# - math.log(0.01) = 4.605170185988091
 		if not w_surface == v_surface:
 			try: 
 				wv_cost = self.wvcos[w_surface][v_surface]
 			except:
 				wv_cost = wv_cost_def
+		#w,vが同じとき変形しないコストがかかる
+		# - math.log(0.99) = 0.01005033585350145
 		else:
-			wv_cost = math.log(1 - wv_prob_def) 
+			wv_cost = - math.log(1 - wv_prob_def) 
 
 		return wv_cost
 
@@ -222,16 +236,18 @@ class Lattice_Maker():
 			best_sequence.insert(0,best_node) 
 			former_edge = best_node.edge
 
+		"""
 		for best_node in best_sequence:
 			best_node.showinfo_pos(self.iddef)
+		"""
+		return best_sequence
 
 
 def main():
+	#辞書の読み込み
 	dict_dir = "/Users/yukitomo/Research/jp_robust_morphame_analysis/data/mecab-ipadic-2.7.0-20070801-utf8/"
 	pkl_dir = "/Users/yukitomo/Research/jp_robust_morphame_analysis/pkl_data/"
-
 	print "loading dictionary"
-
 	wdic = pickle.load(open(pkl_dir + "ipadic_word_dict.pkl", "r"))
 	
 	"""
@@ -241,18 +257,19 @@ def main():
 		for morph in morph_list:
 			morph.showinfo()
 	"""
-
 	rpdic = pickle.load(open(pkl_dir + "ipadic_read_pron_dict.pkl", "r"))
 	iddef = load_2colums(open(dict_dir + "left-id.def","r")," ") #mecabはr,l同じID
-
 	wvcos = load_3colums_string(open(dict_dir + "wv_cost.def","r"),"\t")
 	cccos = load_3colums_number(open(dict_dir + "matrix.def","r")," ")
 
-	lm = Lattice_Maker(wdic, rpdic, wvcos, cccos, iddef)
 
+	#文の入力
 	input_sent = raw_input('input a sentence\n')
 
+	#ラティスの生成
+	lm = Lattice_Maker(wdic, rpdic, wvcos, cccos, iddef)
 	lattice = lm.create_lattice(input_sent)
+	#pickle.dump(lattice, open(pkl_dir + "lattice_gohanwotaberu.pkl","w"))
 
 	"""
 	#生成されたラティスの確認
@@ -262,9 +279,13 @@ def main():
 			for node in node_list:
 				node.showinfo()
 	"""
-	#pickle.dump(lattice, open(pkl_dir + "lattice_gohanwotaberu.pkl","w"))
-	lm.viterbi(lattice)
+	
+	#ビタビによる最適な系列の決定
+	best_sequence = lm.viterbi(lattice)
 
+	#最適系列の出力
+	for best_node in best_sequence:
+		best_node.showinfo_pos(self.iddef)
 
 
 
