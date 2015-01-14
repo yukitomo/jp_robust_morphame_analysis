@@ -2,7 +2,7 @@
 #-*-coding:utf-8-*-
 #2014-12-31 Yuki Tomo
 
-import pickle, math, jctconv
+import pickle, math, jctconv, string
 from collections import defaultdict
 from make_dict_obj import Morph
 
@@ -48,7 +48,7 @@ class Lattice_Node():
 
 
 
-def expand_string(string):
+def expand_string(input_string):
 	"""
 	input:文字列
 	output:拡張された文字列のリスト
@@ -57,10 +57,15 @@ def expand_string(string):
 	ex_strings = []
 
 	#ひらがな to カタカナ
-	u_string = unicode(string,"utf-8") #unicode化 
+	u_string = unicode(input_string,"utf-8") #unicode化 
 	ex_strings.append(jctconv.jctconv.hira2kata(u_string).encode('utf-8'))
 
 	#小文字を含むひらがな to カタカナ (おとぅさん to オトウサン)
+	#cap_string = input_string.translate(string.maketrans('ぁぃぅぇぉ', 'あいうえお'))
+	#u_cap_string = unicode(cap_string,"utf-8")
+	#ex_strings.append(jctconv.jctconv.hira2kata(cap_string).encode('utf-8'))
+
+
 
 	#jctconv.normalize(u'ティロ･フィナ〜レ','NFKC')
 	"""
