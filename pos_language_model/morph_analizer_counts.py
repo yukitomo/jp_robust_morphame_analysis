@@ -1,13 +1,11 @@
 #!/usr/bin/python
 #-*-coding:utf-8-*-
-#2014-12-31 Yuki Tomo
+#2014-1-21 Yuki Tomo
+
 
 import pickle, math, jctconv, string
 from collections import defaultdict
 from make_dict_obj import Morph
-from morph_analizer_counts import *
-
-
 
 def load_2colums(input_file,sym):
 	load_obj = {}
@@ -32,6 +30,108 @@ def load_3colums_number(input_file,sym):
 	return load_obj
 
 
+def count_mergin(f_ba_e, f_ba_d, sigma_a_e, sigma_a_d, alpha):
+	"""
+	input : count(b,a)_e, count(b,a)_d, sigma_a_count(b,a)_e, sigma_a_count(b,a)_d, alpha
+	output : P(b|a)
+	"""
+	beta = 1 - alpha
+	prob_ab = (alpha * f_ba_e + beta * f_ba_d) / (alpha * sigma_a_e + beta * sigma_a_d)
+
+
+def parameter_update():
+	"""
+	input : posid_unigram_freq, posid_bigram_freq, posid_word_freq
+	output : wdic, cccos, 
+	"""
+
+
+def calc_cond_prob(single_freq, pair_freq):
+	"""
+	条件付き確率の計算
+	single_freq : unigramの頻度が辞書に格納されたものなど
+	pair_freq : bigramの頻度がdict in dict で格納されたものなど pair_freq[previous_word][next_word]
+	"""
+	cond_prob =defaultdict(dict)
+	for previous_element, next_element_dict in pair_freq.items():
+		#print "previous_element : %s"%previous_element
+		try: #previous_element = "B"を避ける
+			previous_element_freq = single_freq[previous_element]
+			for next_element, cond_freq in next_element_dict.items():
+				#print "next_element : %s"%next_element
+				cond_prob[previous_element][next_element] = float(cond_freq) / previous_element_freq
+		except: pass
+	return cond_prob
+
+def calc_cond_cost(single_freq, pair_freq, base):
+	"""
+	頻度から確率を計算し、コストを導出
+	input:
+		single_freq : unigramの頻度が辞書に格納されたものなど
+		pair_freq : bigramの頻度がdict in dict で格納されたものなど pair_freq[previous_word][next_word]
+		base : logの底
+
+	output:
+		- log_base(prob)コスト値（低いほど確率大）
+	"""
+	cond_cost =defaultdict(dict)
+	for previous_element, next_element_dict in pair_freq.items():
+		try: #previous_element = "B"を避ける
+			previous_element_freq = single_freq[previous_element]
+			for next_element, cond_freq in next_element_dict.items():
+				cond_cost[previous_element][next_element] = - math.log(float(cond_freq) / previous_element_freq, 10)
+		except: pass
+	return cond_cost
+
+
+class Freq():
+	"""
+	頻度Freq (d or e) を格納するクラス
+
+	"""
+	def __init__(self, c_freq, cc_freq, vc_freq, wv_freq, v_freq):
+		self.c = c_freq
+		self.cc = cc_freq
+		self.vc = vc_freq
+		self.wv = wv_freq
+		self.v = v_freq
+
+	def calc_prob(self, choice):
+		"""
+		格納されている各頻度から確率値を計算する(初期の頻度d用)
+		output : P(c_i|c_i-1), P(v|c), P(w|v)
+		"""
+		if choice == "cc":
+			return calc_cond_prob(self.c, self.cc)
+		elif choice == "vc":
+			return calc_cond_prob(self.c, self.vc)
+		else :
+			return calc_cond_prob(self.v, self.wv)
+
+	def calc_cost(self, choice, base):
+		"""
+		格納されている各頻度から確率値を計算する(初期の頻度d用)
+		output : P(c_i|c_i-1), P(v|c), P(w|v)
+		"""
+		if choice == "cc":
+			return calc_cond_cost(self.c, self.cc, base)
+		elif choice == "vc":
+			return calc_cond_cost(self.c, self.vc, base)
+		else :
+			return calc_cond_cost(self.v, self.wv, base)
+
+
+
+class Prob():
+	"""
+	各確率を格納 P(c_i|c_i-1), P(v|c), P(w|v)
+	"""
+	def __init__(cc_prob, vc_prob, wv_prob):
+		self.cc = cc_prob
+		self.vc = vc_prob
+		self.prob = wv_prob
+
+
 class Lattice_Node():
 	"""
 	ベストパスの計算のために、表記ｗ,　元の表記v , 品詞id, 生成コスト, 変形コスト
@@ -46,7 +146,8 @@ class Lattice_Node():
 		self.wv_cost = float(wv_cost) #単語vから表記wが生成されるコスト
 
 	def showinfo(self):
-		print "[v, w, id_l, id_r, vc_c, wv_c] = [%s, %s, %d, %d, %f, %f]"%(self.v_surface, self.w_surface, self.id_l, self.id_r, self.vc_cost, self.wv_cost)
+		print "[v, w, id_l, id_r, vc_c, wv_c] = [%s, %s, %d, %d, %f, %f]"\
+			%(self.v_surface, self.w_surface, self.id_l, self.id_r, self.vc_cost, self.wv_cost)
 
 
 
@@ -88,7 +189,7 @@ def expand_string(input_string):
 
 class Node_result():
 	def __init__(self, node, begin_idx, end_idx, best_score, best_edge):
-		self.node = node
+		self.node = node #Lattice_Node
 		self.b_idx = begin_idx
 		self.e_idx = end_idx
  		self.score = best_score
@@ -98,10 +199,20 @@ class Node_result():
 		print "[b_index, e_index, best_score, best_edge] = [%d, %d, %f, (%d, %d)]"%(self.b_idx, self.e_idx, self.score, self.edge[0], self.edge[1])
 		self.node.showinfo()
 
-	def showinfo_pos(self,iddef):
+	def showinfo_pos(self, iddef):
 		print "[b_index, e_index, best_score, best_edge] = [%d, %d, %f, (%d, %d)]"%(self.b_idx, self.e_idx, self.score, self.edge[0], self.edge[1])
 		self.node.showinfo()
 		print iddef[self.node.id_l]
+
+	def return_info(self):
+		"""
+		output : パラメータチューニングのために、結果の各要素の頻度を渡す
+		[v_surface, w_surface, posid]
+		"""
+		return [self.node.v_surface, self.node.w_surface, self.node.id_l]
+
+
+
 
 
 
@@ -254,55 +365,22 @@ class Lattice_Maker():
 	def show_best_sequence(self, best_sequence):
 		for best_node in best_sequence:
 			best_node.showinfo_pos(self.iddef)
-		
 
+	def return_best_sequence_counts(self, best_sequence):
+		posid_unigram_counts = defaultdict(int)
+		posid_bigram_counts = defaultdict(int)
+		posid_word_counts = defaultdict(int)
+		wv_counts = defaultdict(int)
 
+		pre_posid = None
 
+		for best_node in best_sequence:
+			[v, w, posid] = best_node.return_info()
+			posid_unigram_counts[posid] += 1
+			posid_word_counts[(posid, v)] += 1
+			wv_counts[(v, w)] += 1
 
-def main():
-	#辞書の読み込み
-	dict_dir = "/Users/yukitomo/Research/jp_robust_morphame_analysis/data/mecab-ipadic-2.7.0-20070801-utf8/"
-	pkl_dir = "/Users/yukitomo/Research/jp_robust_morphame_analysis/pkl_data/"
-	print "loading dictionary"
-	wdic = pickle.load(open(pkl_dir + "ipadic_word_dict.pkl", "r"))
-	
-	"""
-	#単語辞書checker 
-	for windex, morph_list in wdic.items():
-		print windex
-		for morph in morph_list:
-			morph.showinfo()
-	"""
-	rpdic = pickle.load(open(pkl_dir + "ipadic_read_pron_dict.pkl", "r"))
-	iddef = load_2colums(open(dict_dir + "left-id.def","r")," ") #mecabはr,l同じID
-	wvcos = load_3colums_string(open(dict_dir + "wv_cost.def","r"),"\t")
-	cccos = load_3colums_number(open(dict_dir + "matrix.def","r")," ")
+			if pre_posid:
+				posid_bigram_counts[(pre_v,v)] += 1
 
-
-	#文の入力
-	input_sent = raw_input('input a sentence\n')
-
-	#ラティスの生成
-	lm = Lattice_Maker(wdic, rpdic, wvcos, cccos, iddef)
-	lattice = lm.create_lattice(input_sent)
-	#pickle.dump(lattice, open(pkl_dir + "lattice_gohanwotaberu.pkl","w"))
-
-	"""
-	#生成されたラティスの確認
-	for k1, v in lattice.items():x
-		for k2, node_list in v.items():
-			print k1, k2
-			for node in node_list:
-				node.showinfo()
-	"""
-	
-	#ビタビによる最適な系列の決定
-	best_sequence = lm.viterbi(lattice)
-
-	#最適系列の出力
-	lm.show_best_sequence(best_sequence)
-
-
-
-if __name__ == '__main__':
-	main()
+		return [posid_unigram_counts, posid_bigram_counts, posid_word_counts, wv_counts]
