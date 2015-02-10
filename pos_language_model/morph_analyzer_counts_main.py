@@ -43,15 +43,26 @@ def main():
 
 	"""
 
-	#1.初期頻度_dの読み込み
-	iddef = load_2colums(open(dict_dir + "left-id.def","r")," ") #mecabはr,l同じID
-	rpdic = pickle.load(open(pkl_dir + "ipadic_read_pron_dict.pkl", "r"))
+	#品詞id, 読みの辞書の読み込み
+	dict_dir = "/Users/yukitomo/Research/jp_robust_morphame_analysis/data/mecab-ipadic-2.7.0-20070801-utf8/"
+	pkl_dir = "/Users/yukitomo/Research/jp_robust_morphame_analysis/pkl_data/"
 
+	id_def = load_2colums(open(dict_dir + "left-id.def","r")," ") #mecabはr,l同じID
+	read_pron_dic = pickle.load(open(pkl_dir + "ipadic_read_pron_dict.pkl", "r"))
+
+	#1.初期頻度_dの読み込み
 	#毎日新聞
 	pkl_dir = "/Users/yukitomo/Research/jp_robust_morphame_analysis/pkl_data/"
 	c_freq_d = pickle.load(open(pkl_dir + "mainichi_posid_unigram_counts.pkl","r")) #freq(c)
 	cc_freq_d = pickle.load(open(pkl_dir + "mainichi_posid_bigram_counts.pkl","r")) #freq(c_i|c_i-1)
 	vc_freq_d = pickle.load(open(pkl_dir + "mainichi_posid_word_counts.pkl","r")) #freq(v|c)
+
+	#for pos, v_dict in vc_freq_d.items():
+	#	for v, freq in v_dict.items():
+	#		print pos, v, freq
+
+	#for pos, freq in c_freq_d.items():
+	#	print pos, freq
 
 	#dict check
 	#print cc_freq_d
@@ -70,16 +81,18 @@ def main():
 
 	#2.初期頻度_dから確率値の計算をし、コスト（対数）に変換
 	cc_cost = freq_d.calc_cost("cc", 10)
-	#vc_cost = freq_d.calc_cost("vc", 10) #文字列から検索するために、morphオブジェクト型に変更する必要あり
+	vc_cost = freq_d.calc_cost("vc", 10)
+	wv_cost = freq_d.calc_cost("vc", 10)
 
 
 
 	#デコードの確認
 	#文の入力
-	input_sent = raw_input('input a sentence\n')
+	#input_sent = raw_input('input a sentence\n')
+	input_sent = "ごはんを食べる。"
 
 	#ラティスの生成
-	lm = Lattice_Maker(wdic, rpdic, wvcos, cccos, iddef)
+	lm = Lattice_Maker(vc_cost, read_pron_dic, wv_cost, cc_cost, id_def)
 	lattice = lm.create_lattice(input_sent)
 	#pickle.dump(lattice, open(pkl_dir + "lattice_gohanwotaberu.pkl","w"))
 
@@ -87,8 +100,8 @@ def main():
 	best_sequence = lm.viterbi(lattice)
 
 	#最適系列の出力
-	lm.show_best_sequence(best_sequence)
-	print lm.return_best_sequence_counts(best_sequence)
+	#lm.show_best_sequence(best_sequence)
+	#print lm.return_best_sequence_counts(best_sequence)
 
 	
 	

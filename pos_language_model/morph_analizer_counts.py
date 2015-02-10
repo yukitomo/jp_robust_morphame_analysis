@@ -30,6 +30,8 @@ def load_3colums_number(input_file,sym):
 	return load_obj
 
 
+
+
 def count_mergin(f_ba_e, f_ba_d, sigma_a_e, sigma_a_d, alpha):
 	"""
 	input : count(b,a)_e, count(b,a)_d, sigma_a_count(b,a)_e, sigma_a_count(b,a)_d, alpha
@@ -83,6 +85,29 @@ def calc_cond_cost(single_freq, pair_freq, base):
 		except: pass
 	return cond_cost
 
+def calc_cond_cost_vc(single_freq, pair_freq, base):
+	"""
+	頻度から確率を計算し、コストを導出(vc_costだけ特殊な形)
+	#lattice生成のオブジェクトの構造上、morphオブジェクト型に変更する必要あり
+	#vc_cost = {surface1:[morph11, morph12,.....], surface2:[morph21, morph22,....],... }
+ 	#morph_class = [surface, id_l, id_r, vc_cost]
+
+	input:
+		single_freq : unigramの頻度が辞書に格納されたものなど
+		pair_freq : bigramの頻度がdict in dict で格納されたものなど pair_freq[previous_word][next_word] = freq
+		base : logの底
+
+	output:
+		- log_base(prob)コスト値（低いほど確率大）
+	"""
+	cond_cost = defaultdict(list)
+	for previous_element, next_element_dict in pair_freq.items(): #品詞, 各単語に対しての頻度辞書
+		previous_element_freq = single_freq[previous_element] #品詞の頻度
+		for next_element, cond_freq in next_element_dict.items():
+			cost = - math.log(float(cond_freq) / previous_element_freq, 10)
+			morph = Morph(next_element, previous_element, previous_element, cost)
+			cond_cost[next_element].append(morph)
+	return cond_cost
 
 class Freq():
 	"""
@@ -111,14 +136,21 @@ class Freq():
 	def calc_cost(self, choice, base):
 		"""
 		格納されている各頻度から確率値を計算する(初期の頻度d用)
+		base : 対数の底
 		output : P(c_i|c_i-1), P(v|c), P(w|v)
 		"""
 		if choice == "cc":
 			return calc_cond_cost(self.c, self.cc, base)
 		elif choice == "vc":
-			return calc_cond_cost(self.c, self.vc, base)
-		else :
+			#vc_cost = {surface1:[morph11, morph12,.....], surface2:[morph21, morph22,....],... }
+		 	#morph_class = [surface, id_l, id_r, vc_cost]
+ 			vc_cost = calc_cond_cost_vc(self.c, self.vc, base)
+ 			return vc_cost
+		elif choice == "wv" :
 			return calc_cond_cost(self.v, self.wv, base)
+
+		else:
+			print "error"
 
 
 
@@ -210,10 +242,6 @@ class Node_result():
 		[v_surface, w_surface, posid]
 		"""
 		return [self.node.v_surface, self.node.w_surface, self.node.id_l]
-
-
-
-
 
 
 
