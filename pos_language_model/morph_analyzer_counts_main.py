@@ -43,6 +43,8 @@ def main():
 
 	"""
 
+	#--------------------------初期設定------------------------------------
+
 	#品詞id, 読みの辞書の読み込み
 	dict_dir = "/Users/yukitomo/Research/jp_robust_morphame_analysis/data/mecab-ipadic-2.7.0-20070801-utf8/"
 	pkl_dir = "/Users/yukitomo/Research/jp_robust_morphame_analysis/pkl_data/"
@@ -79,20 +81,25 @@ def main():
 	#Freq クラスに格納 初期頻度freq_d
 	freq_d = Freq(c_freq_d, cc_freq_d, vc_freq_d, wv_freq_d, v_freq_d)
 
+	#Eステップで更新する頻度の初期化　freq_e
+	freq_e = Freq(defaultdict(int), defaultdict(dict), defaultdict(dict), defaultdict(dict), defaultdict(int))
+
 	#2.初期頻度_dから確率値の計算をし、コスト（対数）に変換
-	cc_cost = freq_d.calc_cost("cc", 10)
-	vc_cost = freq_d.calc_cost("vc", 10)
-	wv_cost = freq_d.calc_cost("vc", 10)
+	cc_cost_e = freq_d.calc_cost("cc", 10)
+	vc_cost_e = freq_d.calc_cost("vc", 10)
+	wv_cost_e = freq_d.calc_cost("wv", 10)
 
+	#Costオブジェクトに格納
+	cost_dict = Cost(cc_cost_e, vc_cost_e, wv_cost_e)
 
-
-	#デコードの確認
+	#------------------初期値でのデコード例----------------------------------
+	
 	#文の入力
 	#input_sent = raw_input('input a sentence\n')
-	input_sent = "ごはんを食べる。"
+	input_sent = "ごはんをたべる。"
 
 	#ラティスの生成
-	lm = Lattice_Maker(vc_cost, read_pron_dic, wv_cost, cc_cost, id_def)
+	lm = Lattice_Maker(cost_dict.vc, read_pron_dic, cost_dict.wv, cost_dict.cc, id_def)
 	lattice = lm.create_lattice(input_sent)
 	#pickle.dump(lattice, open(pkl_dir + "lattice_gohanwotaberu.pkl","w"))
 
@@ -100,19 +107,20 @@ def main():
 	best_sequence = lm.viterbi(lattice)
 
 	#最適系列の出力
-	#lm.show_best_sequence(best_sequence)
-	#print lm.return_best_sequence_counts(best_sequence)
+	lm.show_best_sequence(best_sequence)
+	
+	#最適系列から得られた頻度
+	increase_counts = lm.return_best_sequence_counts(best_sequence)
 
+	#頻度の更新
+	#freq_e.update_counts(increase_counts)
+
+	#コストの更新
+	print increase_counts.show_info()
+	[cost_dict, freq_e] = cost_update(cost_dict, freq_e, freq_d, increase_counts)
+	cost_dict.show_info()
 	
-	
-	#単語辞書checker
-	"""
-	for windex, morph_list in wdic.items():
-		print windex
-		for morph in morph_list:
-			morph.showinfo()
-	"""
-		
+
 
 	"""
 	
