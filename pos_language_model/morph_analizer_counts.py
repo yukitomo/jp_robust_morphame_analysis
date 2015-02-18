@@ -38,14 +38,9 @@ def count_mergin(f_ba_e, f_ba_d, sigma_a_e, sigma_a_d, alpha):
 	output : P(b|a)
 	"""
 	beta = 1 - alpha
-	prob_ab = (alpha * f_ba_e + beta * f_ba_d) / (alpha * sigma_a_e + beta * sigma_a_d)
+	prob_ab = (alpha * f_ba_e + beta * f_ba_d) / float(alpha * sigma_a_e + beta * sigma_a_d)
+	return prob_ab
 
-
-def parameter_update():
-	"""
-	input : posid_unigram_freq, posid_bigram_freq, posid_word_freq
-	output : wdic, cccos, 
-	"""
 
 
 def calc_cond_prob(single_freq, pair_freq):
@@ -109,6 +104,114 @@ def calc_cond_cost_vc(single_freq, pair_freq, base):
 			cond_cost[next_element].append(morph)
 	return cond_cost
 
+def update_cost_freq(cost_dict, freq_e, freq_d, increase_counts):
+	"""
+	input : Eステップで得られた頻度 , 初期値の頻度, 更新差分
+	output : 各コストの辞書 vc_cost, wv_cost, cc_cost
+	"""
+	#vc, cc の頻度update
+	for posid_pair, count in increase_counts.cc.items():
+		#posid_pair = (pre_posid, next_posid)
+		freq_e.cc[posid_pair[0]][posid_pair[1]] = freq_e.cc[posid_pair[0]].get(posid_pair[1], 0) + count
+		
+	for vc_pair, count in increase_counts.vc.items():
+		#vc_pair = (c, v)
+		freq_e.vc[vc_pair[0]][vc_pair[1]] = freq_e.vc[vc_pair[0]].get(vc_pair[1], 0) + count
+
+	for wv_pair, count in increase_counts.wv.items():
+		freq_e.wv[wv_pair[0]][wv_pair[1]] = freq_e.wv[wv_pair[0]].get(wv_pair[1], 0) + count
+
+	#c の頻度update と同時にコストもアップデート
+	#c_freq の更新
+	for pos, count in increase_counts.c.items():
+		freq_e.c[pos] += count
+		
+		#cc_cost の更新	#cost(c2|c1) についてc2を全てなめて更新
+		for next_pos in cost_dict.cc[pos].keys():
+			cost_dict.cc[pos][next_pos] = - math.log(count_mergin(freq_e.cc[pos].get(next_pos,0), freq_d.cc[pos].get(next_pos,0), freq_e.c[pos], freq_d.c[pos], 0.01))
+		#vc_cost の更新	#cost(v|c) についてvを全てなめて更新
+		#for v_word in cost_dict.vc[pos].keys():
+		#	update_cost = = - math.log(count_mergin(freq_e.vc[pos].get(v_word,0), freq_d.vc[pos].get(v_word,0), freq_e.c[pos], freq_d.c[pos], 0.01))
+		#	cost_dict.vc[pos][v_word] 
+
+	#cc_cost の更新	#increase_counts(c2|c1) についてc2を全てなめて更新
+	for pair_pos in increase_counts.cc.keys(): 
+		pos = pair_pos[0]
+		next_pos = pair_pos[1]
+		cost_dict.cc[pos][next_pos] = - math.log(count_mergin(freq_e.cc[pos].get(next_pos,0), freq_d.cc[pos].get(next_pos,0), freq_e.c[pos], freq_d.c[pos], 0.01))
+
+	#vc_cost の更新	#increase_counts(v|c) についてvを全てなめて更新
+	#for pair_vc in increase_counts.vc.keys(): 
+	#	pos = pair_vc[0]
+	#	word = pair_vc[1]
+	#	cost_dict.vc[pos][word] = - math.log(count_mergin(freq_e.vc[pos].get(word,0), freq_d.vc[pos].get(word,0), freq_e.c[pos], freq_d.c[pos], 0.01))
+
+	#vc_costの更新 {surface1:[morph11, morph12,.....],  surface2:[morph21, morph22,....],... }, Morph (surface, posid, vc_cost) 
+	#上記のような構造になっているので全て再計算し直さなければならない
+	new_vc_cost = defaultdict(list)
+	for posid, word_freq_e_dict in freq_e.vc.items():
+		for word, count in word_freq_e_dict.items():
+			cost = - math.log(count_mergin(count, freq_d.vc[posid].get(word,0), freq_e.c[posid], freq_d.c[posid], 0.01))
+			new_vc_cost[word].append(Morph(word, posid, posid, cost))
+
+	for posid, word_freq_d_dict in freq_d.vc.items():
+		for word, count in word_freq_d_dict.items():
+			cost = - math.log(count_mergin(freq_d.vc[posid].get(word,0), count, freq_e.c[posid], freq_d.c[posid], 0.01))
+			new_vc_cost[word].append(Morph(word, posid, posid, cost))
+
+	#v_freqの更新
+	for v_word, count in increase_counts.v.items():
+		freq_e.v[v_word] += count
+		#cost(w|v)のvがかかるコストを全てなめて更新
+		for w_word in cost_dict.wv[v_word].keys(): #cost(w|v)のvがかかるコストを全てなめて更新
+			cost_dict.wv[v_word][w_word] = - math.log(freq_e.wv[v_word][w_word]  / float(freq_e.v[v_word]), 10)
+
+	for pair_wv in increase_counts.wv.keys(): 
+		v_word = pair_wv[0]
+		w_word = pair_wv[1]
+		#print "v,w : ",  pair_wv
+		#print "v,w : ", freq_e.wv[v_word][w_word], "v : ", freq_e.v[v_word]
+		cost_dict.wv[v_word][w_word] = - math.log(freq_e.wv[v_word][w_word]  / float(freq_e.v[v_word]), 10)
+
+	return [cost_dict, freq_e]
+
+
+
+
+class Cost():
+	"""
+	ラティス展開、コスト計算に必要な辞書を要素としてもつ
+	"""
+	def __init__(self, cc_cost, vc_cost, wv_cost):
+		self.cc = cc_cost
+		self.vc = vc_cost
+		self.wv = wv_cost
+
+	def show_info(self):
+		print "cc_cost", self.cc
+		print "vc_cost", self.vc
+		print "wv_cost", self.wv
+
+
+class Counts():
+	"""
+	現在のパラメータから得られた最適な系列で得られた頻度を格納したクラス
+	c_counts["posid"], c_counts[(pre_posid, posid)], vc_counts[(c, v)], v_counts[v], wv_counts[(v, w)]
+	"""
+	def __init__(self, c_counts, cc_counts, vc_counts, v_counts, wv_counts):
+		self.c = c_counts
+		self.cc = cc_counts
+		self.vc = vc_counts
+		self.v = v_counts
+		self.wv = wv_counts
+
+	def show_info(self):
+		print "c_count", self.c
+		print "cc_count", self.cc
+		print "vc_count", self.vc 
+		print "v_count", self.v
+		print "wv_count", self.wv
+
 class Freq():
 	"""
 	頻度Freq (d or e) を格納するクラス
@@ -120,6 +223,27 @@ class Freq():
 		self.vc = vc_freq
 		self.wv = wv_freq
 		self.v = v_freq
+
+	def update_counts(self, increase_counts):
+		#c_freq の更新
+		for pos, count in increase_counts.c.items():
+			self.c[pos] += count
+
+		#v_freqの更新
+		for word, count in increase_counts.v.items():
+			self.v[word] += count
+
+		for posid_pair, count in increase_counts.cc.items():
+			#posid_pair = (pre_posid, next_posid)
+			self.cc[posid_pair[0]][posid_pair[1]] = self.cc[posid_pair[0]].get(posid_pair[1], 0) + count
+		
+		for vc_pair, count in increase_counts.vc.items():
+			#vc_pair = (c, v)
+			self.vc[vc_pair[0]][vc_pair[1]] = self.vc[vc_pair[0]].get(vc_pair[1], 0) + count
+
+		for wv_pair, count in increase_counts.wv.items():
+			self.wv[wv_pair[0]][wv_pair[1]] = self.wv[wv_pair[0]].get(wv_pair[1], 0) + count
+
 
 	def calc_prob(self, choice):
 		"""
@@ -250,11 +374,11 @@ class Lattice_Maker():
 	単語辞書(vc_costも含む)、読み発音辞書、単語変形コスト、品詞遷移コスト
 	word_dict, read_pron_dict, wv_costs_dict, cccos
 	"""
-	def __init__(self, wdic, rpdic, wvcos, cccos, iddef):
-		self.wdic = wdic
+	def __init__(self, cost_dict, rpdic, iddef):
+		self.wdic = cost_dict.vc
+		self.wvcos = cost_dict.wv
+		self.cccos = cost_dict.cc
 		self.rpdic = rpdic
-		self.wvcos = wvcos
-		self.cccos = cccos
 		self.iddef = iddef
 
 	def create_lattice(self, sent):
@@ -352,7 +476,7 @@ class Lattice_Maker():
 						for pre_node in lattice_result[b_i]:
 							#pre_node.showinfo()
 							pre_pos = pre_node.node.id_l
-							pos_cost = self.cccos[pre_pos][pos]
+							pos_cost = self.cccos[pre_pos].get(pos, 100) #キーエラーを回避するために例がないものには高いコストを与える
 							cand_score = pre_node.score + pos_cost + gen_cost
 							#print cand_score
 
@@ -399,6 +523,8 @@ class Lattice_Maker():
 		posid_bigram_counts = defaultdict(int)
 		posid_word_counts = defaultdict(int)
 		wv_counts = defaultdict(int)
+		vc_counts = defaultdict(int)
+		v_counts = defaultdict(int)
 
 		pre_posid = None
 
@@ -406,9 +532,28 @@ class Lattice_Maker():
 			[v, w, posid] = best_node.return_info()
 			posid_unigram_counts[posid] += 1
 			posid_word_counts[(posid, v)] += 1
+			v_counts[v] += 1
 			wv_counts[(v, w)] += 1
-
+			
 			if pre_posid:
-				posid_bigram_counts[(pre_v,v)] += 1
+				posid_bigram_counts[(pre_posid,posid)] += 1
+				pre_posid = posid
+			else:
+				pre_posid = posid
 
-		return [posid_unigram_counts, posid_bigram_counts, posid_word_counts, wv_counts]
+		return Counts(posid_unigram_counts, posid_bigram_counts, posid_word_counts, v_counts, wv_counts)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

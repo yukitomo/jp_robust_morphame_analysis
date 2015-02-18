@@ -9,6 +9,10 @@ from morph_analizer_counts import *
 
 def main():
 	"""
+	posid_unigram_freq : 品詞の頻度
+	posid_bigram_freq : 品詞バイグラムの頻度
+	posid_word_freq : 品詞と単語の組み合わせの頻度
+
 	初期値
 	P(c_i|c_i-1) = freq(c_i|c_i-1) / freq(c_i-1)
 	P(v|c) = freq(v|c) / freq(c)
@@ -93,7 +97,7 @@ def main():
 	cost_dict = Cost(cc_cost_e, vc_cost_e, wv_cost_e)
 
 	#------------------初期値でのデコード例----------------------------------
-	
+"""
 	#文の入力
 	#input_sent = raw_input('input a sentence\n')
 	input_sent = "ごはんをたべる。"
@@ -112,69 +116,39 @@ def main():
 	#最適系列から得られた頻度
 	increase_counts = lm.return_best_sequence_counts(best_sequence)
 
-	#頻度の更新
-	#freq_e.update_counts(increase_counts)
 
 	#コストの更新
 	print increase_counts.show_info()
-	[cost_dict, freq_e] = cost_update(cost_dict, freq_e, freq_d, increase_counts)
+	[cost_dict, freq_e] = update_cost_freq(cost_dict, freq_e, freq_d, increase_counts)
 	cost_dict.show_info()
+"""
+	#-----------------------------------------------------------------------
+
+	#-------------------学習----------------------------------------
 	
+	#ファイルの入力
+	input_file = open(sys.argv[1]) 
 
-
-	"""
-	
-	posid_unigram_freq : 品詞の頻度
-	posid_bigram_freq : 品詞バイグラムの頻度
-	posid_word_freq : 品詞と単語の組み合わせの頻度
-	
-
-
-
-
-	#Eステップで計算される頻度
-	posid_unigram_freq_e = {}
-	posid_bigram_freq_e = defaultdict(dict)
-	posid_word_freq_e = defaultdict(dict)
-	wvcos = load_3colums_string(open(dict_dir + "wv_cost.def","r"),"\t")
-
-	alpha = 0.01
-
-
-	#文の入力
-	#input_sent = raw_input('input a sentence\n')
-
-	
-	#大量の文が格納されたファイルの入力
-	sents_file = open()
-
-	for sent in sents_file:
-		#増えた頻度の項目のみパラメータの更新
-		wdic = 
-		rpdic = 
-		cccos = 
-		#?
-		wvcos =
-
+	for input_sent in input_file:
+		#updateされたコストをモデルに組み込む
+		lm = Lattice_Maker(cost_dict, read_pron_dic, id_def)
 		#ラティスの生成
-		lm = Lattice_Maker(wdic, rpdic, wvcos, cccos, iddef)
 		lattice = lm.create_lattice(input_sent)
-		#pickle.dump(lattice, open(pkl_dir + "lattice_gohanwotaberu.pkl","w"))
-		
 		#ビタビによる最適な系列の決定
 		best_sequence = lm.viterbi(lattice)
-		
-		#最適系列の出力 : 品詞単語の組み合わせ、wvの組み合わせ、品詞bigram 
-		lm.return_best_sequence_counts(best_sequence)
-	
-	
-	#生成されたラティスの確認
-	for k1, v in lattice.items():
-		for k2, node_list in v.items():
-			print k1, k2
-			for node in node_list:
-				node.showinfo()
-	"""
+		#最適系列の出力
+		lm.show_best_sequence(best_sequence)
+		#最適系列から得られた頻度
+		increase_counts = lm.return_best_sequence_counts(best_sequence)
+		#コストのアップデート
+		[cost_dict, freq_e] = update_cost_freq(cost_dict, freq_e, freq_d, increase_counts)
+
+
+
+
+
+
+
 
 
 if __name__ == '__main__':
