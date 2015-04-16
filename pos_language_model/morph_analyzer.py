@@ -59,7 +59,7 @@ def expand_string(input_string):
 	"""
 	ex_strings = []
 
-	#ひらがな to カタカナ
+	#ひらがな to カタカナ 読みを取得するため
 	u_string = unicode(input_string,"utf-8") #unicode化 
 	ex_strings.append(jctconv.jctconv.hira2kata(u_string).encode('utf-8'))
 
@@ -67,8 +67,6 @@ def expand_string(input_string):
 	#cap_string = input_string.translate(string.maketrans('ぁぃぅぇぉ', 'あいうえお'))
 	#u_cap_string = unicode(cap_string,"utf-8")
 	#ex_strings.append(jctconv.jctconv.hira2kata(cap_string).encode('utf-8'))
-
-
 
 	#jctconv.normalize(u'ティロ･フィナ〜レ','NFKC')
 	"""

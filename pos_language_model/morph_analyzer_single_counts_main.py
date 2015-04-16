@@ -2,9 +2,6 @@
 #-*-coding:utf-8-*-
 #2015-01-31 Yuki Tomo
 
-#python morph_analyzer_counts_main.py ../data/lang-8-20111007-2.0/lang-8-20111007-L1-v2_source_sents_very_short.dat
-
-
 import pickle
 import math
 import jctconv
@@ -134,25 +131,21 @@ def main():
 	#-------------------学習----------------------------------------
 	
 	#ファイルの入力
-	input_file = open(sys.argv[1]) 
-
-	for input_sent in input_file:
-		#updateされたコストをモデルに組み込む
-		lm = Lattice_Maker(cost_dict, read_pron_dic, id_def)
-		#ラティスの生成
-		lattice = lm.create_lattice(input_sent)
-		try: 
-			print "input_sent : ", input_sent
-			#ビタビによる最適な系列の決定
-			best_sequence = lm.viterbi(lattice)			
-			#最適系列の出力
-			lm.show_best_sequence(best_sequence)
-			#最適系列から得られた頻度
-			increase_counts = lm.return_best_sequence_counts(best_sequence)
-			#コストのアップデート
-			[cost_dict, freq_e] = update_cost_freq(cost_dict, freq_e, freq_d, increase_counts)
-		except:
-			pass
+	input_sent = raw_input('input\n') 
+	
+	print "input_sent : ", input_sent
+	#updateされたコストをモデルに組み込む
+	lm = Lattice_Maker(cost_dict, read_pron_dic, id_def)
+	#ラティスの生成
+	lattice = lm.create_lattice(input_sent)
+	#ビタビによる最適な系列の決定
+	best_sequence = lm.viterbi(lattice)
+	#最適系列の出力
+	lm.show_best_sequence(best_sequence)
+	#最適系列から得られた頻度
+	increase_counts = lm.return_best_sequence_counts(best_sequence)
+	#コストのアップデート
+	[cost_dict, freq_e] = update_cost_freq(cost_dict, freq_e, freq_d, increase_counts)
 
 
 if __name__ == '__main__':

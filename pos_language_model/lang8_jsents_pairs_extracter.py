@@ -33,9 +33,9 @@ for line in lang8_file:
 			for sent_list in load_obj[5]:
 				for sent in sent_list:
 					if hira.search(sent):
-						string = headder.sub('',sent)
-						#print string.encode('utf-8')
-						correct_sents.append(string)
+						#sent = headder.sub('',sent)
+						#print sent.encode('utf-8')
+						correct_sents.append(sent)
 
 
 			#source_sents, correct_sents 中のペアを抽出

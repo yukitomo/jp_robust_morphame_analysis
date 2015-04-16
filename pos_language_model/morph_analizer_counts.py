@@ -338,7 +338,7 @@ def expand_string(input_string):
 	u'‐' -> '-'
 	"""
 
-	#音が近い文字列
+	#音が近い文字列 おいしいぃ　→　おいしい
 	#編集距離
 
 	return ex_strings
@@ -357,7 +357,7 @@ class Node_result():
 
 	def showinfo_pos(self, iddef):
 		print "[b_index, e_index, best_score, best_edge] = [%d, %d, %f, (%d, %d)]"%(self.b_idx, self.e_idx, self.score, self.edge[0], self.edge[1])
-		self.node.showinfo()
+		#self.node.showinfo()
 		print iddef[self.node.id_l]
 
 	def return_info(self):
@@ -397,6 +397,7 @@ class Lattice_Maker():
 
 	def create_nodes(self, search_string):
 		nodes_list = []
+		
 		#入力の表記wで直接見つかるノードを生成
 		#nodes_list += [self.convert_morph2node(morph, search_string) for morph in self.wdic[search_string]]
 		#print self.wdic[search_string]
@@ -404,8 +405,19 @@ class Lattice_Maker():
 			#morph.showinfo()
 			nodes_list.append(self.convert_morph2node(morph, search_string))
 
-		ex_strings = expand_string(search_string) #入力されたstringを拡張
+		#入力の表記を拡張する必要がある
+		"""
+		ex_strings
+			全部ひらがな　→ カタカナ（読み）or 変形した文字列（文字形が似ている、音が似ている）
+			漢字 →　カタカナ（読み）
 
+		wv_dict
+			search_stringからw ← vの変形を検索し取得
+
+		"""　
+
+		#ex_strings
+		ex_strings = expand_string(search_string) #入力されたstringを読みのカタカナ化
 		for ex_string in ex_strings:
 			#print ex_string
 			orig_words = self.rpdic[ex_string] #読みがex_stringの単語を格納
@@ -415,8 +427,12 @@ class Lattice_Maker():
 				#print orig_word
 				#nodes_list += [self.convert_morph2node(morph,orig_word) for morph in self.wdic[orig_word]]
 				for morph in self.wdic[orig_word]:
-					morph.showinfo()
+					#morph.showinfo()
 					nodes_list.append(self.convert_morph2node(morph,search_string))
+
+		#wv_dict
+
+
 
 		return nodes_list
 	
@@ -432,11 +448,11 @@ class Lattice_Maker():
 
 		#w,vが異なる文字列のとき変形コストがかかる
 		# - math.log(0.01) = 4.605170185988091
-		if not w_surface == v_surface:
+		if w_surface != v_surface:
 			try: 
-				wv_cost = self.wvcos[w_surface][v_surface]
+				wv_cost = self.wvcos[w_surface][v_surface] #wv_costに格納されていた場合
 			except:
-				wv_cost = wv_cost_def
+				wv_cost = wv_cost_def #wvcosに格納されていない場合
 		#w,vが同じとき変形しないコストがかかる
 		# - math.log(0.99) = 0.01005033585350145
 		else:
@@ -457,11 +473,12 @@ class Lattice_Maker():
 		lattice_result[1].append(BOS_node)
 	
 		#Forward
-		for b_i, v in lattice.items():
+		for b_i, v in lattice.items(): #begin_index, b_iで始まるノードのdict
 			if b_i > 0:
-				for e_i, node_list in v.items():
+				for e_i, node_list in v.items(): #end_index, node_list
 					#print "forcus index"
 					#print "[b_i, e_i] = [%d, %d]"%(b_i, e_i)
+					#print node_list
 
 					for node in node_list:
 						pos = node.id_l
@@ -473,18 +490,22 @@ class Lattice_Maker():
 						#見ているノードの手前のノードからベストスコアとなるノードのindexをベストエッジとする
 						i = 0
 						#print "pre_node"
+						#print lattice_result[b_i]
 						for pre_node in lattice_result[b_i]:
 							#pre_node.showinfo()
 							pre_pos = pre_node.node.id_l
 							pos_cost = self.cccos[pre_pos].get(pos, 100) #キーエラーを回避するために例がないものには高いコストを与える
 							cand_score = pre_node.score + pos_cost + gen_cost
-							#print cand_score
+							#print "cand_score", cand_score
+							#print "best_score", best_score
+							#print "cand_edge", (b_i , i)
 
-							if cand_score < best_score:
+							if cand_score <= best_score:
 								best_edge = (b_i , i)
 								best_score = cand_score
 							i += 1
 
+						
 						node_result = Node_result(node, b_i, e_i, best_score, best_edge)
 						lattice_result[e_i].append(node_result)
 
